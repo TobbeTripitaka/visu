@@ -1,15 +1,13 @@
 #!/usr/bin/python
 import os, sys, getopt, tarfile
 
-
 import numpy as np
-import numpy.ma as ma
+#import numpy.ma as ma
 
-from netCDF4 import Dataset 
-
+from netCDF4 import Dataset
 import matplotlib.pyplot as plt
-#from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid, cm
 
+from mpl_toolkits.basemap import Basemap, addcyclic, shiftgrid, cm
 
 def main(argv):
     '''
@@ -84,14 +82,14 @@ def ncdump(nc_fid):
         A Python list of the NetCDF file variables
     '''
     def print_ncattr(key):
-        """
+        '''
         Prints attributes
 
         Parameters
         ----------
         key : unicode
             a valid netCDF4.Dataset.variables key
-        """
+       '''
         
         try:
             print "\t\ttype:", repr(nc_fid.variables[key].dtype)
@@ -125,8 +123,6 @@ def ncdump(nc_fid):
                 print_ncattr(var)
     return nc_attrs, nc_dims, nc_vars
 
-
-
 def data_to_import(f_name):
     '''
     Make list of grd files in directory. If it's not unzipped, open. 
@@ -138,19 +134,22 @@ def data_to_import(f_name):
     if (f_name.endswith("tar.gz")): 
         tar = tarfile.open(f_name, "r:gz")
         tar.extractall(path=os.path.dirname(f_name))
+        f_name = os.path.dirname(f_name) + '/'
         tar.close()
     elif (f_name.endswith("tar")):
         tar = tarfile.open(f_name, "r:")
         tar.extractall(path=os.path.dirname(f_name))
-        tar.close()		
-    else:
+        f_name = os.path.dirname(f_name) + '/'
+        tar.close()	
+    elif (f_name.endswith("/")):   
         pass
+    else:
+        print 'Error: Input should be folder (end with / ) or tar-ball or zipped folder.'
+        sys.exit(2)
     files_in_folder = os.listdir(f_name)
     layer_files = [i for i in files_in_folder if (i.endswith('.nc') or (i.endswith('.grd')))]
-    return layer_files
+    return layer_files, f_name
      
-
-
 def import_layers(path, in_layers,variables = ['x','y','z']):
     '''
     Read files defined in in_layers, add to numpy array
@@ -181,47 +180,135 @@ def import_layers(path, in_layers,variables = ['x','y','z']):
             y = nc_fid.variables[variables[1]][:] # eg y or lat    
     return data_cube, x, y
 	
-	
-def array2images(data_cube, file_list, img_color_map):
-    max_cmap = np.amax(data_cube)
+def array2images(data_cube, file_list, img_color_map, lons, lats, 
+    cube_swap= (0,2), 
+    image_dir = 'img', 
+    proj_it = True,
+    proj_type = 'sptere',
+    exp_bar = True):
+    '''
+    Save array slices to images
+    Parameters
+    ----------
+    data_cube: numpy array
+        3D array to export
+    file_list: list
+        list with names to save. Lengh of list sets nr of exported files
+    img_color_map: string
+        Name of colormap to use. No path, e.g. 'magma' or 'cool'
+    imf_dir: string
+        path to exported files
+    cube_swap : tuple
+        swap of axes to slice cube in wanted diriection. E.g. (0,2). E.g (1,1) is no swap
+    imgage_dir: string
+        where to store figures
+    proj_it: boolean
+        Save as projected
+    proj_type: string
+        Projection
+    exp_bar: boolean
+        Export colorbar as image
+
+    '''
+    
+    img_interpol = None # Interpolation?
+    max_cmap = np.nanmax(data_cube)
+    min_cmap =np.nanmin(data_cube)
     cmap=plt.get_cmap(img_color_map)
-    img_dir = 'img'
+
+    if exp_bar:
+        a = np.array([[min_cmap,max_cmap]])
+        plt.figure(figsize=(9, 1.5))
+        img = plt.imshow(a, cmap=img_color_map)
+        plt.gca().set_visible(False)
+        cax = plt.axes([0.1, 0.2, 0.8, 0.6])
+        plt.colorbar(orientation="horizontal", cax=cax)
+        plt.savefig('colorbar_%s.png' % img_color_map)
+    
+    
+    plt.set_cmap(img_color_map)
+    plt.axis('off')
+    img_dir = image_dir
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
-       
-    print 'Size of dataset preroll: ', data_cube.shape   
-    data_cube = np.swapaxes(data_cube, 0, 2)
-    print 'Size of dataset postroll: ', data_cube.shape
     
-    for layer_index in xrange(0, 51, 1):
-        print data_cube[layer_index].shape
-        plt.imshow(data_cube[layer_index]) #Needs to be in row,col order
-        plt.savefig('%s/%s.png' % (img_dir, file_list[layer_index]), bbox_inches='tight',transparent=True)
+    data_cube = np.rot90(data_cube, 1)
+    data_cube = np.swapaxes(data_cube, cube_swap[0], cube_swap[1]) # rotate to get orientation
+    
+    if proj_it:
+        fig = plt.figure(figsize=(14,14))
+        ny, nx = data_cube[1].shape   
+        
+        map = Basemap(projection='spstere', boundinglat=-60, lon_0=180, resolution='f')
+        map.drawcoastlines(color='white', linewidth=2.0)
+        map.drawparallels(np.arange(-80.,81.,30.))
+        map.drawmeridians(np.arange(-180.,181.,30.))
+
+        lons = np.linspace(min(lons), max(lons), nx)
+        lats = np.linspace(min(lats), max(lats), ny)
+    
+    if verbose:
+        print 'Saving images:'
+    
+    for layer_index in xrange(0, len(file_list)-43, 1): ##### delete!!!!
+        
+ #       plt.clim(min_cmap,max_cmap)
+       
         if verbose:
-            print 'Saved %s/%s.png' % (img_dir, file_list[layer_index])
-     	
+            print '\t%s/%s.png with shape %s' %(img_dir, file_list[layer_index], data_cube[layer_index].shape)
+
+        if proj_it:
+            plotdata = map.transform_scalar(data_cube[layer_index], lons, lats, nx, ny)
+            img = map.imshow(plotdata, vmin = min_cmap, vmax = max_cmap, cmap = plt.cm.magma) #viridis
+        else:    
+            img = plt.imshow(data_cube[layer_index], interpolation=img_interpol) # T=Transpose
+            
+        plt.savefig('%s/%s.png' % (img_dir, file_list[layer_index]), 
+            bbox_inches='tight', transparent=True)
+    return  	
+
+
+def save_extension(lons,lats):
+    ab = np.zeros(lats.size, dtype=[('lons', float), ('lats', float)])
+    ab['var1'] = lons
+    ab['var2'] = lats
+
+    np.savetxt('test.txt', ab, fmt="%10.3f %10.3f")
+    
+    return
+
+
 #Todo:
 
-# Wrong colormap (jet?!)
 # Check if resolution is ok
 # Export fil med positions
 # Check for nan and convert to alpha
 #Export positions
+# Don't convert .tar and .gz correctly Maybe.
+
+# print 'How many nan: ', data_cube[layer_index].size - np.count_nonzero(np.isnan(data_cube[layer_index]))
+
+#        cb = fig.colorbar(im, orientation='horizontal',fraction=0.046, pad=0.04)
+#        cb.ax.tick_params(labelsize=24)             
+#        cb.ax.yaxis.set_tick_params(color='w')
+
 	
 	
 	
 ### Start here...
 if __name__ == "__main__":
-    input_dir, img_color_map, verbose, save_array = main(sys.argv[1:])
+    input_object, img_color_map, verbose, save_array = main(sys.argv[1:])
 
-file_list = data_to_import(input_dir)
+file_list, input_dir = data_to_import(input_object)
 
 data_cube, lons, lats = import_layers(
                         path =input_dir, 
                         in_layers = file_list, 
                         variables = ('x','y','z'))
 
-array2images(data_cube, file_list, img_color_map)
+array2images(data_cube, file_list, img_color_map, lons, lats)
+
+save_extension(lons,lats)
 
 
 if save_array:
@@ -233,10 +320,10 @@ if verbose:
     print
     print 'Dir:', input_dir
     #print 'List of layers: ', data_to_import(input_dir)
-    print 'Number of layers: ', len(data_to_import(input_dir))
     print 'Size of dataset: ', data_cube.shape
     print 'lats: ', min(lats), 'to', max(lats)
     print 'lons: ', min(lons), 'to', max(lons)
+    print 'Data range: %g to %g' %(np.nanmin(data_cube), np.nanmax(data_cube)) 
 
 
 
