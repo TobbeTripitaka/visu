@@ -1,8 +1,12 @@
 # visu
 Some simple scripts to convert .grd files to multiple .png for visualisation. Also code to crop a large dataset from reference .csv textfile. 
 
+There are some dependencies. However all are packages availoble from conda. Basemap can be commented out if output don't need to be projected.
+
+E.g. grid files in folder data/ output images in colormap 'magma'. Verbose would be useful
+Run:
 ```
-Run python grd2img.py -i data/
+$ python grd2img.py -i data/ -c magma -v True
 ```
 
 There are anumber of arguments
