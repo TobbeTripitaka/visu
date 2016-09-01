@@ -185,6 +185,9 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
     image_dir = 'img', 
     proj_it = True,
     proj_type = 'sptere',
+    flip_flop = True,
+    rotting = True,
+    swip = True,
     exp_bar = True):
     '''
     Save array slices to images
@@ -206,6 +209,12 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
         Save as projected
     proj_type: string
         Projection
+    rotting: boolean
+        Rotate array?
+    flip_flop: boolean
+        Flip array?    
+    swip: boolean
+        swap array    
     exp_bar: boolean
         Export colorbar as image
 
@@ -232,8 +241,13 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
     if not os.path.exists(img_dir):
         os.makedirs(img_dir)
     
-    data_cube = np.rot90(data_cube, 1)
-    data_cube = np.swapaxes(data_cube, cube_swap[0], cube_swap[1]) # rotate to get orientation
+    if flip_flop:
+        data_cube = np.fliplr(data_cube)
+    if rotting:
+        data_cube = np.rot90(data_cube, 1)
+    if swip:
+        data_cube = np.swapaxes(data_cube, cube_swap[0], cube_swap[1]) # rotate to get orientation
+
     
     if proj_it:
         fig = plt.figure(figsize=(14,14))
@@ -250,7 +264,7 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
     if verbose:
         print 'Saving images:'
     
-    for layer_index in xrange(0, len(file_list)-43, 1): ##### delete!!!!
+    for layer_index in xrange(0, len(file_list), 1): ##### delete!!!!
         
  #       plt.clim(min_cmap,max_cmap)
        
@@ -267,15 +281,6 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
             bbox_inches='tight', transparent=True)
     return  	
 
-
-def save_extension(lons,lats):
-    ab = np.zeros(lats.size, dtype=[('lons', float), ('lats', float)])
-    ab['var1'] = lons
-    ab['var2'] = lats
-
-    np.savetxt('test.txt', ab, fmt="%10.3f %10.3f")
-    
-    return
 
 
 #Todo:
@@ -308,7 +313,6 @@ data_cube, lons, lats = import_layers(
 
 array2images(data_cube, file_list, img_color_map, lons, lats)
 
-save_extension(lons,lats)
 
 
 if save_array:
@@ -325,6 +329,16 @@ if verbose:
     print 'lons: ', min(lons), 'to', max(lons)
     print 'Data range: %g to %g' %(np.nanmin(data_cube), np.nanmax(data_cube)) 
 
+
+text_file = open('extension.txt', 'w')
+text_file.write('Imported layers: \n' +
+        ','.join(map(str, file_list))+'\n\n' +
+        'Size of dataset: ' + str(data_cube.shape) +
+        'Lons: \n' + 
+        ','.join(map(str, lons))+'\n\n' +
+        'Lats: \n' +
+        ','.join(map(str, lats))+'\n')
+text_file.close()
 
 
 
