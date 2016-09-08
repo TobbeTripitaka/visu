@@ -16,7 +16,7 @@ def main(argv):
     Parameters from shell
     ----------	
     "-i" or "data=" name path to directory with .nc or .grd files
-    "-o" or "color=" naame the colormap for output images. Grey is default.
+    "-c" or "color=" naame the colormap for output images. Grey is default.
     "-h" some help
     "-v" verbose boolean global variable
     "-s" save array to np-file 
@@ -183,7 +183,7 @@ def import_layers(path, in_layers,variables = ['x','y','z']):
 def array2images(data_cube, file_list, img_color_map, lons, lats, 
     cube_swap= (0,2), 
     image_dir = 'img', 
-    proj_it = True,
+    proj_it = False,
     proj_type = 'sptere',
     flip_flop = True,
     rotting = True,
@@ -234,7 +234,6 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
         plt.colorbar(orientation="horizontal", cax=cax)
         plt.savefig('colorbar_%s.png' % img_color_map)
     
-    
     plt.set_cmap(img_color_map)
     plt.axis('off')
     img_dir = image_dir
@@ -248,7 +247,6 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
     if swip:
         data_cube = np.swapaxes(data_cube, cube_swap[0], cube_swap[1]) # rotate to get orientation
 
-    
     if proj_it:
         fig = plt.figure(figsize=(14,14))
         ny, nx = data_cube[1].shape   
@@ -281,8 +279,6 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
             bbox_inches='tight', transparent=True)
     return  	
 
-
-
 #Todo:
 
 # Check if resolution is ok
@@ -298,8 +294,6 @@ def array2images(data_cube, file_list, img_color_map, lons, lats,
 #        cb.ax.yaxis.set_tick_params(color='w')
 
 	
-	
-	
 ### Start here...
 if __name__ == "__main__":
     input_object, img_color_map, verbose, save_array = main(sys.argv[1:])
@@ -312,8 +306,6 @@ data_cube, lons, lats = import_layers(
                         variables = ('x','y','z'))
 
 array2images(data_cube, file_list, img_color_map, lons, lats)
-
-
 
 if save_array:
     print 'saving array to %sdata.npy' %input_dir
@@ -341,10 +333,4 @@ text_file.write('Imported layers: \n' +
 text_file.close()
 
 
-
-
-
-
-    
-#    ny, nx = model.shape	
 
